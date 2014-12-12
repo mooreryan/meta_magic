@@ -53,7 +53,12 @@ end
 if opts[:outdir].nil?
   Trollop.die :outdir, "You must enter an output directory"
 elsif !File.exist? opts[:outdir]
-  Trollop.die :outdir, "The directory must exist"
+  begin
+    FileUtils.mkdir(opts[:outdir])
+  rescue EACCES => e
+    abort("ERROR: #{e.message}\n\n" +
+          "It appears you don't have the proper permissions")
+  end
 end
 
 if opts[:prefix].nil?
@@ -105,8 +110,12 @@ def rand_str(len=10)
   len.times.map { ('a'..'z').to_a.sample }.join
 end
 
-def zcountfq(infile)
-  "zcat #{infile} | echo $((`wc -l`/4))"
+def zcountfq(infile, threads)
+  if threads == 1
+    "zcat #{infile} | echo $((`wc -l`/4))"
+  elsif threads > 1
+    "unpigz -d -c -p #{threads} | echo $((`wc -l`/4))"
+  end
 end
 
 # quality info before filtering
@@ -134,7 +143,6 @@ run_it(". /home/moorer/.bash_profile", opts[:print_only])
 home = '/home/moorer'
 khmer = 'vendor/khmer/scripts'
 fastx = 'vendor/fastx_toolkit-0.0.14/bin'
-zcountfq = 
 interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
