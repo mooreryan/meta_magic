@@ -1,0 +1,2 @@
+test_files/left.fq.gz 3
+test_files/right.fq.gz 3
