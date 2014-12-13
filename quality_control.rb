@@ -114,7 +114,7 @@ def zcountfq(infile, threads)
   if threads == 1
     "zcat #{infile} | echo $((`wc -l`/4))"
   elsif threads > 1
-    "unpigz -d -c -p #{threads} | echo $((`wc -l`/4))"
+    "unpigz -d -c -p #{threads} #{infile} | echo $((`wc -l`/4))"
   end
 end
 
