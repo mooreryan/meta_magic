@@ -159,10 +159,13 @@ combined_counts_fname = File.join(opts[:outdir], counts)
 interleaved_reads_fname =
   File.join(opts[:outdir], "#{combined}.fq")
 filtered_reads_fname =
-  File.join(opts[:outdir], "#{combined}.filtered.fq") 
-pe_fname =
+  File.join(opts[:outdir], "#{combined}.filtered.fq")
+
+pe_fname = "#{filtered_reads_fname}.pe"
+se_fname = "#{filtered_reads_fname}.se"
+pe_gz_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
-se_fname =
+se_gz_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
 
 info_dir = File.join(opts[:outdir], 'info')
@@ -203,13 +206,16 @@ end
 
 qual_stats(filtered_reads_fname, opts[:print_only])
 
-# separate properly paired and orfaned reads
+#### separate properly paired and orfaned reads ######################
+
 # will output:
 #   #{combined}.filtered.fq.pe <-- proper pairs
 #   #{combined}.filtered.fq.se <-- orphaned reads
+
 cmd = "#{extract_paired_reads} #{filtered_reads_fname}"
 run_it(cmd, opts[:print_only])
-# moved extracted files to output folder
+
+#### moved extracted files to output folder ##########################
 
 if opts[:print_only]
   $stderr.puts("FileUtils.mv(Dir.glob(\"#{combined}*\"), opts[:outdir])\n" +
@@ -222,18 +228,18 @@ end
 #### gzip the pe and se files ########################################
 
 if opts[:threads] == 1
-  cmd = "gzip -c #{filtered_reads_fname}.pe > #{pe_fname}"
+  cmd = "gzip -c #{pe_fname} > #{pe_gz_fname}"
   run_it(cmd, opts[:print_only])
 
-  cmd = "gzip -c #{filtered_reads_fname}.se > #{se_fname}"
+  cmd = "gzip -c #{se_fname} > #{se_gz_fname}"
   run_it(cmd, opts[:print_only])
 else
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{filtered_reads_fname}.pe > #{pe_fname}"
+    "pigz -c --best -p #{opts[:threads]} #{pe_fname} > #{pe_gz_fname}"
   run_it(cmd, opts[:print_only])
 
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{filtered_reads_fname}.se > #{se_fname}"
+    "pigz -c --best -p #{opts[:threads]} #{se_fname} > #{se_gz_fname}"
   run_it(cmd, opts[:print_only])
 end
 
