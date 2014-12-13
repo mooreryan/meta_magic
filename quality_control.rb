@@ -155,9 +155,9 @@ if opts[:print_only]
   num_sequences_left = 10
   num_sequences_right = 10
 else
-  num_sequences_left = run_it(zcountfq(opts[:left]),
+  num_sequences_left = run_it(zcountfq(opts[:left], opts[:threads]),
                               opts[:print_only]).stdout.to_i
-  num_sequences_right = run_it(zcountfq(opts[:right]),
+  num_sequences_right = run_it(zcountfq(opts[:right], opts[:threads]),
                                opts[:print_only]).stdout.to_i
 end  
 counts = "#{combined}.counts.txt"
