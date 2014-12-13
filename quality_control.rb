@@ -163,10 +163,8 @@ info_dir = File.join(opts[:outdir], 'info')
 
 # count reads in each file
 
-num_sequences_left = run_it(zcountfq(opts[:left], opts[:threads]),
-                            opts[:print_only]).stdout.to_i
-num_sequences_right = run_it(zcountfq(opts[:right], opts[:threads]),
-                             opts[:print_only]).stdout.to_i
+num_sequences_left = run_it(zcountfq(opts[:left], opts[:threads])).stdout.to_i
+num_sequences_right = run_it(zcountfq(opts[:right], opts[:threads])).stdout.to_i
 
 File.open(combined_counts_fname, 'w') do |f|
   f.puts [opts[:left], num_sequences_left].join(' ')
