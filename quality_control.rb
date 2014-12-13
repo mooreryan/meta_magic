@@ -140,6 +140,9 @@ end
 # source proper env vars
 run_it(". /home/moorer/.bash_profile", opts[:print_only])
 
+
+#### scripts #########################################################
+
 home = '/home/moorer'
 khmer = 'vendor/khmer/scripts'
 fastx = 'vendor/fastx_toolkit-0.0.14/bin'
@@ -147,7 +150,23 @@ interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
 
+#### file names ######################################################
+
 combined = "#{opts[:prefix]}_combined"
+counts = "#{combined}.counts.txt"
+combined_counts_fname = File.join(opts[:outdir], counts)
+
+interleaved_reads_fname =
+  File.join(opts[:outdir], "#{combined}.fq")
+filtered_reads_fname =
+  File.join(opts[:outdir], "#{combined}.filtered.fq") 
+pe_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
+se_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
+
+info_dir = File.join(opts[:outdir], 'info')
+
 
 # count reads in each file
 
@@ -160,76 +179,73 @@ else
   num_sequences_right = run_it(zcountfq(opts[:right], opts[:threads]),
                                opts[:print_only]).stdout.to_i
 end  
-counts = "#{combined}.counts.txt"
-File.open(File.join(opts[:outdir], counts), 'w') do |f|
+
+File.open(combined_counts_fname, 'w') do |f|
   f.puts [opts[:left], num_sequences_left].join(' ')
   f.puts [opts[:right], num_sequences_right].join(' ')
 end
 
 # interleave reads
-interleaved_reads = File.join(opts[:outdir], "#{combined}.fq")
-cmd = "#{interleave} -o #{interleaved_reads} #{opts[:left]} #{opts[:right]}"
+cmd = "#{interleave} -o #{interleaved_reads_fname} #{opts[:left]} #{opts[:right]}"
 run_it(cmd, opts[:print_only])
 
-qual_stats(interleaved_reads, opts[:print_only])
+qual_stats(interleaved_reads_fname, opts[:print_only])
 
 # qualty filter
-filtered_reads = File.join(opts[:outdir], "#{combined}.filtered.fq") 
-cmd = "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} -i #{interleaved_reads} > #{filtered_reads}"
+cmd = "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} -i #{interleaved_reads_fname} > #{filtered_reads_fname}"
 run_it(cmd, opts[:print_only])
 
 if opts[:print_only]
-  $stderr.puts "FileUtils.rm(interleaved_reads) if File.exist?(interleaved_reads)"
+  $stderr.puts "FileUtils.rm(interleaved_reads_fname) if File.exist?(interleaved_reads_fname)"
 else
-  FileUtils.rm(interleaved_reads) if File.exist?(interleaved_reads)
+  FileUtils.rm(interleaved_reads_fname) if File.exist?(interleaved_reads_fname)
 end
 
-qual_stats(filtered_reads, opts[:print_only])
+qual_stats(filtered_reads_fname, opts[:print_only])
 
 # separate properly paired and orfaned reads
 # will output:
 #   #{combined}.filtered.fq.pe <-- proper pairs
 #   #{combined}.filtered.fq.se <-- orphaned reads
-cmd = "#{extract_paired_reads} #{filtered_reads}"
+cmd = "#{extract_paired_reads} #{filtered_reads_fname}"
 run_it(cmd, opts[:print_only])
 # moved extracted files to output folder
 
 if opts[:print_only]
   $stderr.puts("FileUtils.mv(Dir.glob(\"#{combined}*\"), opts[:outdir])\n" +
-               "FileUtils.rm(filtered_reads) if File.exist?(filtered_reads)")
+               "FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)")
 else
   FileUtils.mv(Dir.glob("#{combined}*"), opts[:outdir])
-  FileUtils.rm(filtered_reads) if File.exist?(filtered_reads)
+  FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)
 end
-# gzip the pe and se files
-pe_out = File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
-se_out = File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
+
+#### gzip the pe and se files ########################################
+
 if opts[:threads] == 1
-  cmd = "gzip -c #{filtered_reads}.pe > #{pe_out}"
+  cmd = "gzip -c #{filtered_reads_fname}.pe > #{pe_fname}"
   run_it(cmd, opts[:print_only])
 
-  cmd = "gzip -c #{filtered_reads}.se > #{se_out}"
+  cmd = "gzip -c #{filtered_reads_fname}.se > #{se_fname}"
   run_it(cmd, opts[:print_only])
 else
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{filtered_reads}.pe > #{pe_out}"
+    "pigz -c --best -p #{opts[:threads]} #{filtered_reads_fname}.pe > #{pe_fname}"
   run_it(cmd, opts[:print_only])
 
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{filtered_reads}.se > #{se_out}"
+    "pigz -c --best -p #{opts[:threads]} #{filtered_reads_fname}.se > #{se_fname}"
   run_it(cmd, opts[:print_only])
 end
 
 if opts[:print_only]
-  $stderr.puts "FileUtils.rm(Dir.glob(\"#{filtered_reads}.?e\"))"
+  $stderr.puts "FileUtils.rm(Dir.glob(\"#{filtered_reads_fname}.?e\"))"
 else
-  FileUtils.rm(Dir.glob("#{filtered_reads}.?e"))
+  FileUtils.rm(Dir.glob("#{filtered_reads_fname}.?e"))
 end
 
-# move extra output to its own folder
-info_dir = File.join(opts[:outdir], 'info')
-unless File.exist?(info_dir)
+#### move extra output to its own folder #############################
 
+unless File.exist?(info_dir)
   if opts[:print_only]
     $stderr.puts "info_dir = FileUtils.mkdir(info_dir)"
   else
