@@ -110,6 +110,10 @@ def rand_str(len=10)
   len.times.map { ('a'..'z').to_a.sample }.join
 end
 
+def countfq(infile)
+  "cat #{infile} | echo $((`wc -l`/4))"
+end
+
 def zcountfq(infile, threads)
   if threads == 1
     "zcat #{infile} | echo $((`wc -l`/4))"
@@ -224,6 +228,12 @@ else
   FileUtils.mv(Dir.glob("#{combined}*"), opts[:outdir])
   FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)
 end
+
+#### count sequences in pe and se files ##############################
+
+
+
+
 
 #### gzip the pe and se files ########################################
 
