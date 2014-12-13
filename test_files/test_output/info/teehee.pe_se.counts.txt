@@ -1,0 +1,2 @@
+test_files/test_output/teehee_combined.filtered.fq.pe 4
+test_files/test_output/teehee_combined.filtered.fq.se 1

@@ -111,7 +111,7 @@ def qual_stats(interleaved_reads)
   # run_it(cmd, opts[:print_only])
 end
 
-countfq = lambda do |infile|
+countfq = lambda do |infile, threads|
   "cat #{infile} | echo $((`wc -l`/4))"
 end
 
@@ -123,7 +123,7 @@ zcountfq = lambda do |infile, threads|
   end
 end
 
-def count_reads(out_fname, count_fn, threads, *files)
+def count_reads(*files, out_fname: '', count_fn: '', threads: 1)
   counts = files.map do |file|
     run_it(count_fn.call(file, threads)).stdout.to_i
   end
@@ -165,6 +165,8 @@ filtered_reads_fname =
 
 pe_fname = "#{filtered_reads_fname}.pe"
 se_fname = "#{filtered_reads_fname}.se"
+pe_se_counts_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
 pe_gz_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
 se_gz_fname =
@@ -175,15 +177,10 @@ info_dir = File.join(opts[:outdir], 'info')
 
 #### count reads in each file ########################################
 
-count_reads(combined_counts_fname, zcountfq, opts[:threads], opts[:left], opts[:right])
-
-# num_sequences_left = run_it(zcountfq(opts[:left], opts[:threads])).stdout.to_i
-# num_sequences_right = run_it(zcountfq(opts[:right], opts[:threads])).stdout.to_i
-
-# File.open(combined_counts_fname, 'w') do |f|
-#   f.puts [opts[:left], num_sequences_left].join(' ')
-#   f.puts [opts[:right], num_sequences_right].join(' ')
-# end
+count_reads(opts[:left], opts[:right],
+            out_fname: combined_counts_fname,
+            count_fn: zcountfq,
+            threads: opts[:threads])            
 
 # interleave reads
 cmd = "#{interleave} -o #{interleaved_reads_fname} #{opts[:left]} #{opts[:right]}"
@@ -215,9 +212,10 @@ FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)
 
 #### count sequences in pe and se files ##############################
 
-
-
-
+count_reads(pe_fname, se_fname,
+            out_fname: pe_se_counts_fname,
+            count_fn: countfq,
+            threads: opts[:threads])            
 
 #### gzip the pe and se files ########################################
 
