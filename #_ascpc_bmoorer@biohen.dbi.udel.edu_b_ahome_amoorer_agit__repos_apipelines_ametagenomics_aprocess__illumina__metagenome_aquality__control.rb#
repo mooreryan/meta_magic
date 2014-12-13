@@ -111,6 +111,30 @@ def qual_stats(interleaved_reads)
   # run_it(cmd, opts[:print_only])
 end
 
+countfq = lambda do |infile|
+  "cat #{infile} | echo $((`wc -l`/4))"
+end
+
+zcountfq = lambda do |infile, threads|
+  if threads == 1
+    "zcat #{infile} | echo $((`wc -l`/4))"
+  elsif threads > 1
+    "unpigz -d -c -p #{threads} #{infile} | echo $((`wc -l`/4))"
+  end
+end
+
+def count_reads(out_fname, count_fn, threads, *files)
+  counts = files.map do |file|
+    run_it(count_fn.call(file, threads)).stdout.to_i
+  end
+  
+  File.open(out_fname, 'w') do |f|
+    counts.each_with_index do |count, idx|
+      f.puts [files[idx], count].join(' ')
+    end
+  end
+end
+
 ######################################################################
 ##### pipeline #######################################################
 ######################################################################
@@ -150,30 +174,6 @@ info_dir = File.join(opts[:outdir], 'info')
 
 
 # count reads in each file
-
-countfq = lambda do |infile|
-  "cat #{infile} | echo $((`wc -l`/4))"
-end
-
-zcountfq = lambda do |infile, threads|
-  if threads == 1
-    "zcat #{infile} | echo $((`wc -l`/4))"
-  elsif threads > 1
-    "unpigz -d -c -p #{threads} #{infile} | echo $((`wc -l`/4))"
-  end
-end
-
-def count_reads(out_fname, count_fn, threads, *files)
-  counts = files.map do |file|
-    run_it(count_fn.call(file, threads)).stdout.to_i
-  end
-  
-  File.open(out_fname, 'w') do |f|
-    counts.each_with_index do |count, idx|
-      f.puts [files[idx], count].join(' ')
-    end
-  end
-end
 
 count_reads(combined_counts_fname, zcountfq, opts[:threads], opts[:left], opts[:right])
 
