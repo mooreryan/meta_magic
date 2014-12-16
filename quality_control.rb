@@ -167,8 +167,9 @@ exit if should_exit
 #### file names ######################################################
 
 interleaved = "#{opts[:prefix]}.interleaved"
-counts = "#{interleaved}.counts.txt"
-interleaved_counts_fname = File.join(opts[:outdir], counts)
+
+original_read_counts_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.original.counts.txt")
 
 interleaved_reads_fname =
   File.join(opts[:outdir], "#{interleaved}.fq")
@@ -210,10 +211,10 @@ info_dir = File.join(opts[:outdir], 'info')
 
 #### count reads in each file ########################################
 
-count_reads(opts[:left], opts[:right],
-            out_fname: interleaved_counts_fname,
-            count_fn: zcountfq,
-            threads: opts[:threads])            
+cmd =
+  "#{readstats} #{opts[:left]} #{opts[:right]}" +
+  "> #{original_read_counts_fname}"
+run_it(cmd)
 
 #### interleave reads ################################################
 
