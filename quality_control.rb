@@ -423,6 +423,7 @@ cmd =
 run_it(cmd)
 
 FileUtils.mv(Dir.glob("*keep.below"), digi_dir)
+FileUtils.rm([pe_keep_fname, se_keep_fname])
 
 puts
 puts "Done!"
