@@ -20,7 +20,9 @@ opts = Trollop.options do
   opt(:left, 'Left reads (.fq.gz)', type: :string)
   opt(:right, 'Right reads (.fq.gz)', type: :string)
   opt(:prefix, 'Prefix for output', type: :string)
-  opt(:quality, 'Minimum quality score to keep', type: :int, default: 30)
+  opt(:quality, 'Minimum quality score to keep',
+      type: :int,
+      default: 30)
   opt(:percent,
       'Minimum percent of bases that must have [-q] quality',
       type: :int,
@@ -101,14 +103,10 @@ def qual_stats(interleaved_reads)
   home = '/home/moorer'
   fastx = 'vendor/fastx_toolkit-0.0.14/bin'
   
-  cmd = "#{home}/#{fastx}/fastx_quality_stats -i #{interleaved_reads} -o #{interleaved_reads}.stats.txt"
+  cmd =
+    "#{home}/#{fastx}/fastx_quality_stats -i #{interleaved_reads} " +
+    "-o #{interleaved_reads}.stats.txt"
   run_it(cmd)
-
-  # cmd = "#{home}/#{fastx}/fastq_quality_boxplot_graph.sh -i #{interleaved_reads}.stats.txt -o #{interleaved_reads}.quality.png -t #{prefix}"
-  # run_it(cmd, opts[:print_only])
-
-  # cmd = "#{home}/#{fastx}/fastx_nucleotide_distribution_graph.sh -i #{interleaved_reads}.stats.txt -o #{interleaved_reads}.nuc_dist.png -t #{prefix}"
-  # run_it(cmd, opts[:print_only])
 end
 
 countfq = lambda do |infile, threads|
@@ -156,7 +154,12 @@ readstats = "#{home}/vendor/khmer/sandbox/readstats.py"
 
 # make sure they are there
 should_exit = false
-[interleave, q_filter, extract_paired_reads, flash, readstats].each do |program|
+programs = [interleave,
+            q_filter,
+            extract_paired_reads,
+            flash,
+            readstats]
+programs.each do |program|
   unless File.exist?(program)
     $stderr.puts "ERROR: #{program} doesn't exist!"
     should_exit = true
@@ -218,7 +221,9 @@ run_it(cmd)
 
 #### interleave reads ################################################
 
-cmd = "#{interleave} -o #{interleaved_reads_fname} #{opts[:left]} #{opts[:right]}"
+cmd =
+  "#{interleave} -o #{interleaved_reads_fname} #{opts[:left]} " +
+  "#{opts[:right]}"
 run_it(cmd)
 
 #### quality stats ###################################################
@@ -292,11 +297,13 @@ if opts[:threads] == 1
   run_it(cmd)
 else
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
+    "pigz -c --best -p #{opts[:threads]} " +
+    "#{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
   run_it(cmd)
 
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{flashed_and_filtered_se_fname} > #{se_gz_fname}"
+    "pigz -c --best -p #{opts[:threads]} " +
+    "#{flashed_and_filtered_se_fname} > #{se_gz_fname}"
   run_it(cmd)
 end
 
