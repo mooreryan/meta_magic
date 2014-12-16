@@ -175,30 +175,37 @@ interleaved_reads_fname =
 old_flashed_fname =
   File.join(opts[:outdir], "flashed.extendedFrags.fastq")
 flashed_fname =
-  File.join(opts[:outdir], "#{interleaved}.flash_se.fq")
+  File.join(opts[:outdir], "#{interleaved}.flashed.fq")
 old_nonflashed_fname =
   File.join(opts[:outdir], "flashed.notCombined.fastq")
 nonflashed_fname =
-  File.join(opts[:outdir], "#{interleaved}.flash_pe.fq")
+  File.join(opts[:outdir], "#{interleaved}.nonflashed.fq")
 
+# PREFIX.interleaved.flashed.filtered.fq
 flashed_filtered_reads_fname =
   File.join(opts[:outdir],
             "#{parse_fname(flashed_fname)[:base]}.filtered.fq")
+# PREFIX.interleaved.nonflashed.filtered.fq
 nonflashed_filtered_reads_fname =
   File.join(opts[:outdir],
             "#{parse_fname(nonflashed_fname)[:base]}.filtered.fq")
 
-# pe_fname = "#{filtered_reads_fname}.pe"
-# se_fname = "#{filtered_reads_fname}.se"
-# pe_se_counts_fname =
-#   File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
-# pe_gz_fname =
-#   File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
-# se_gz_fname =
-#   File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
+# contains all se reads: flashed and qc orphans
+# PREFIX.flashed_and_filtered.se.fq
+flashed_and_filtered_se_fname =
+  File.join(opts[:outdir],
+            "#{opts[:prefix]}.flashed_and_filtered.se.fq")
+nonflashed_and_filtered_pe_fname =
+  "#{nonflashed_filtered_reads_fname}.pe"
 
-# info_dir = File.join(opts[:outdir], 'info')
+pe_se_counts_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
+pe_gz_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
+se_gz_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
 
+info_dir = File.join(opts[:outdir], 'info')
 
 #### count reads in each file ########################################
 
@@ -250,29 +257,32 @@ run_it(cmd)
 FileUtils.rm(flashed_fname)
 FileUtils.rm(nonflashed_fname)
 
-exit
-
-#### quality stats ###################################################
-
-qual_stats(filtered_reads_fname)
-
 #### separate properly paired and orfaned reads ######################
 
 # will output:
 #   #{interleaved}.filtered.fq.pe <-- proper pairs
 #   #{interleaved}.filtered.fq.se <-- orphaned reads
 
-cmd = "#{extract_paired_reads} #{filtered_reads_fname}"
+cmd = "#{extract_paired_reads} #{nonflashed_filtered_reads_fname}"
 run_it(cmd)
 
-#### moved extracted files to output folder ##########################
-
+# move extracted files to output folder
 FileUtils.mv(Dir.glob("#{interleaved}*"), opts[:outdir])
-FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)
+FileUtils.rm(nonflashed_filtered_reads_fname)
+
+# combine the flashed reads (pe) and the qc-ed pe reads into one pe
+# file
+cmd =
+  "cat #{flashed_filtered_reads_fname} " +
+  "#{nonflashed_filtered_reads_fname}.se " +
+  "> #{flashed_and_filtered_se_fname}"
+run_it(cmd)
+FileUtils.rm(flashed_filtered_reads_fname)
+FileUtils.rm("#{nonflashed_filtered_reads_fname}.se")
 
 #### count sequences in pe and se files ##############################
 
-count_reads(pe_fname, se_fname,
+count_reads(nonflashed_and_filtered_pe_fname, flashed_and_filtered_se_fname,
             out_fname: pe_se_counts_fname,
             count_fn: countfq,
             threads: opts[:threads])            
@@ -280,22 +290,23 @@ count_reads(pe_fname, se_fname,
 #### gzip the pe and se files ########################################
 
 if opts[:threads] == 1
-  cmd = "gzip -c #{pe_fname} > #{pe_gz_fname}"
+  cmd = "gzip -c #{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
   run_it(cmd)
 
-  cmd = "gzip -c #{se_fname} > #{se_gz_fname}"
+  cmd = "gzip -c #{flashed_and_filtered_se_fname} > #{se_gz_fname}"
   run_it(cmd)
 else
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{pe_fname} > #{pe_gz_fname}"
+    "pigz -c --best -p #{opts[:threads]} #{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
   run_it(cmd)
 
   cmd =
-    "pigz -c --best -p #{opts[:threads]} #{se_fname} > #{se_gz_fname}"
+    "pigz -c --best -p #{opts[:threads]} #{flashed_and_filtered_se_fname} > #{se_gz_fname}"
   run_it(cmd)
 end
 
-FileUtils.rm(Dir.glob("#{filtered_reads_fname}.?e"))
+FileUtils.rm(nonflashed_and_filtered_pe_fname)
+FileUtils.rm(flashed_and_filtered_se_fname)
 
 #### move extra output to its own folder #############################
 
@@ -304,6 +315,7 @@ unless File.exist?(info_dir)
 end
 
 FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*.txt')), info_dir)
+FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*hist*')), info_dir)
 
 puts
 puts "Done!"
