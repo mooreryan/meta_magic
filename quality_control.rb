@@ -44,6 +44,11 @@ opts = Trollop.options do
       '(if greater than one, will use pigz)',
       type: :int,
       default: 1)
+
+  opt(:kmer, 'Diginorm kmer size', type: :int, default: 20)
+  opt(:coverage, 'Diginorm max cov', type: :int, default: 10)
+  opt(:ram, 'How much ram to use for diginorm hash',
+      type: :int, default: 4)
 end
 
 if opts[:left].nil?
@@ -76,6 +81,12 @@ end
 if opts[:threads] < 1
   Trollop.die :threads, "Threads must be positive"
 end
+
+if opts[:ram] < 4
+  Trollop.die :ram, "You must specify at least 4 gb of ram"
+end
+
+ram = "#{opts[:ram] / 4.0}e9"
 
 ######################################################################
 ##### functions ######################################################
@@ -162,12 +173,18 @@ run_it(". /home/moorer/.bash_profile")
 
 home = '/home/moorer'
 khmer = 'vendor/khmer/scripts'
+sandbox = 'vendor/khmer/sandbox'
 fastx = 'vendor/fastx_toolkit-0.0.14/bin'
 interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
 flash = '/usr/local/bin/flash'
 readstats = "#{home}/vendor/khmer/sandbox/readstats.py"
+
+diginorm = {
+  normalize_by_median: "#{home}/#{khmer}/normalize-by-median.py",
+  filter_below_abund: "#{home}/#{sandbox}/my-filter-below-abund.py",
+}
 
 # make sure they are there
 should_exit = false
@@ -177,6 +194,14 @@ programs = [interleave,
             flash,
             readstats]
 programs.each do |program|
+  unless File.exist?(program)
+    $stderr.puts "ERROR: #{program} doesn't exist!"
+    should_exit = true
+  end
+end
+exit if should_exit
+
+diginorm.values.each do |program|
   unless File.exist?(program)
     $stderr.puts "ERROR: #{program} doesn't exist!"
     should_exit = true
@@ -237,6 +262,19 @@ info_dir = File.join(opts[:outdir], 'info')
 stats_dir = File.join(info_dir, 'stats')
 counts_dir = File.join(info_dir, 'counts')
 flash_dir = File.join(info_dir, 'flash_info')
+
+# diginorm stuff
+digi_dir = File.join(opts[:outdir], 'digi_dir')
+FileUtils.mkdir(digi_dir)
+hash_table_fname =
+  File.join(digi_dir,
+            "#{opts[:prefix]}.c#{opts[:coverage]}.k#{opts[:kmer]}.kh")
+pe_keep_fname =
+  File.join(digi_dir,
+            "#{parse_fname(pe_gz_fname)[:base]}.gz.keep")
+se_keep_fname =
+  File.join(digi_dir,
+            "#{parse_fname(se_gz_fname)[:base]}.gz.keep")
 
 #### count reads in each file ########################################
 
@@ -353,6 +391,38 @@ FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*stats*txt')),
              stats_dir)
 FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*counts*txt')),
              counts_dir)
+
+
+#### diginorm ########################################################
+
+# the paired end reads first
+cmd =
+  "#{diginorm[:normalize_by_median]} -k #{opts[:kmer]} " +
+  "-C #{opts[:coverage]} -N 4 -x #{ram} " +
+  "-o #{pe_keep_fname} " +
+  "--savetable #{hash_table_fname} -p #{pe_gz_fname}"
+run_it(cmd)
+
+# now the se reads
+cmd =
+  "#{diginorm[:normalize_by_median]} " +
+  "-C #{opts[:coverage]} " +
+  "-o #{se_keep_fname} --loadtable #{hash_table_fname} " +
+  "--savetable #{hash_table_fname} #{se_gz_fname}"
+run_it(cmd)
+
+#### filter below abund ############################################
+
+cmd =
+  "#{diginorm[:filter_below_abund]} " +
+  "#{opts[:threads]} " +
+  "#{opts[:coverage] * 5} " +
+  "#{hash_table_fname} " +
+  "#{pe_keep_fname} " +
+  "#{se_keep_fname}"
+run_it(cmd)
+
+FileUtils.mv(Dir.glob("*keep.below"), digi_dir)
 
 puts
 puts "Done!"
