@@ -110,13 +110,19 @@ def rand_str(len=10)
 end
 
 # quality info before filtering
-def qual_stats(interleaved_reads)
+def qual_stats(interleaved_reads, starting=false)
   home = '/home/moorer'
   fastx = 'vendor/fastx_toolkit-0.0.14/bin'
+
+  if starting
+    output = "#{interleaved_reads}.pre_qc.stats.txt"
+  else
+    output = "#{interleaved_reads}.stats.txt"
+  end
   
   cmd =
     "#{home}/#{fastx}/fastx_quality_stats -i #{interleaved_reads} " +
-    "-o #{interleaved_reads}.stats.txt"
+    "-o #{output}"
   run_it(cmd)
 end
 
@@ -228,6 +234,9 @@ se_gz_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
 
 info_dir = File.join(opts[:outdir], 'info')
+stats_dir = File.join(info_dir, 'stats')
+counts_dir = File.join(info_dir, 'counts')
+flash_dir = File.join(info_dir, 'flash_info')
 
 #### count reads in each file ########################################
 
@@ -245,7 +254,7 @@ run_it(cmd)
 
 #### quality stats ###################################################
 
-qual_stats(interleaved_reads_fname)
+qual_stats(interleaved_reads_fname, true)
 
 #### flash ###########################################################
 
@@ -337,12 +346,13 @@ run_it(cmd)
 
 #### move extra output to its own folder #############################
 
-unless File.exist?(info_dir)
-  info_dir = FileUtils.mkdir(info_dir)
-end
+FileUtils.mkdir([info_dir, stats_dir, counts_dir, flash_dir])
+FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*hist*')), flash_dir)
 
-FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*.txt')), info_dir)
-FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*hist*')), info_dir)
+FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*stats*txt')),
+             stats_dir)
+FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*counts*txt')),
+             counts_dir)
 
 puts
 puts "Done!"
