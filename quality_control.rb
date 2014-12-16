@@ -15,6 +15,17 @@ end
 opts = Trollop.options do
   banner <<-EOS
 
+  Steps:
+
+  1) Count reads
+  2) Interleave reads
+  3) Get quality stats on starting sequences
+  4) Flash reads together
+  5) Quality filter
+  6) Separate into pe and se files
+  7) Count reads in pe and se files
+  8) Get quality stats on final sequences
+
   Options:
   EOS
   opt(:left, 'Left reads (.fq.gz)', type: :string)
@@ -205,6 +216,12 @@ nonflashed_and_filtered_pe_fname =
 
 pe_se_counts_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
+
+pe_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq")
+se_fname =
+  File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq")
+
 pe_gz_fname =
   File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
 se_gz_fname =
@@ -246,8 +263,6 @@ FileUtils.mv(old_nonflashed_fname, nonflashed_fname)
 # remove old interleaved file
 FileUtils.rm(interleaved_reads_fname)
 
-# TODO: Move flashed.hist and flashed.histogram to stats folder
-
 #### quality filter ##################################################
 
 # do the flashed se reads
@@ -287,28 +302,34 @@ run_it(cmd)
 FileUtils.rm(flashed_filtered_reads_fname)
 FileUtils.rm("#{nonflashed_filtered_reads_fname}.se")
 
+#### quality stats ###################################################
+
+# use a sane name
+FileUtils.mv(nonflashed_and_filtered_pe_fname, pe_fname)
+FileUtils.mv(flashed_and_filtered_se_fname, se_fname)
+
+qual_stats(pe_fname)
+qual_stats(se_fname)
+
 #### gzip the pe and se files ########################################
 
 if opts[:threads] == 1
-  cmd = "gzip -c #{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
+  cmd = "gzip -c #{pe_fname} > #{pe_gz_fname}"
   run_it(cmd)
 
-  cmd = "gzip -c #{flashed_and_filtered_se_fname} > #{se_gz_fname}"
+  cmd = "gzip -c #{se_fname} > #{se_gz_fname}"
   run_it(cmd)
 else
   cmd =
     "pigz -c --best -p #{opts[:threads]} " +
-    "#{nonflashed_and_filtered_pe_fname} > #{pe_gz_fname}"
+    "#{pe_fname} > #{pe_gz_fname}"
   run_it(cmd)
 
   cmd =
     "pigz -c --best -p #{opts[:threads]} " +
-    "#{flashed_and_filtered_se_fname} > #{se_gz_fname}"
+    "#{se_fname} > #{se_gz_fname}"
   run_it(cmd)
 end
-
-FileUtils.rm(nonflashed_and_filtered_pe_fname)
-FileUtils.rm(flashed_and_filtered_se_fname)
 
 #### count sequences in pe and se files ##############################
 
