@@ -152,6 +152,16 @@ interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
 
+# make sure they are there
+should_exit = false
+[interleave, q_filter, extract_paired_reads].each do |program|
+  unless File.exist?(program)
+    $stderr.puts "ERROR: #{program} doesn't exist!"
+    should_exit = true
+  end
+end
+exit if should_exit
+
 #### file names ######################################################
 
 combined = "#{opts[:prefix]}_combined"
@@ -246,3 +256,4 @@ end
 FileUtils.mv(Dir.glob(File.join(opts[:outdir], '*.txt')), info_dir)
 
 puts
+puts "Done!"
