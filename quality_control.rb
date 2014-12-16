@@ -181,19 +181,23 @@ old_nonflashed_fname =
 nonflashed_fname =
   File.join(opts[:outdir], "#{interleaved}.flash_pe.fq")
 
-filtered_reads_fname =
-  File.join(opts[:outdir], "#{interleaved}.filtered.fq")
+flashed_filtered_reads_fname =
+  File.join(opts[:outdir],
+            "#{parse_fname(flashed_fname)[:base]}.filtered.fq")
+nonflashed_filtered_reads_fname =
+  File.join(opts[:outdir],
+            "#{parse_fname(nonflashed_fname)[:base]}.filtered.fq")
 
-pe_fname = "#{filtered_reads_fname}.pe"
-se_fname = "#{filtered_reads_fname}.se"
-pe_se_counts_fname =
-  File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
-pe_gz_fname =
-  File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
-se_gz_fname =
-  File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
+# pe_fname = "#{filtered_reads_fname}.pe"
+# se_fname = "#{filtered_reads_fname}.se"
+# pe_se_counts_fname =
+#   File.join(opts[:outdir], "#{opts[:prefix]}.pe_se.counts.txt")
+# pe_gz_fname =
+#   File.join(opts[:outdir], "#{opts[:prefix]}.pe.filtered.fq.gz")
+# se_gz_fname =
+#   File.join(opts[:outdir], "#{opts[:prefix]}.se.filtered.fq.gz")
 
-info_dir = File.join(opts[:outdir], 'info')
+# info_dir = File.join(opts[:outdir], 'info')
 
 
 #### count reads in each file ########################################
@@ -230,14 +234,25 @@ FileUtils.rm(interleaved_reads_fname)
 
 # TODO: Move flashed.hist and flashed.histogram to stats folder
 
-exit
-
 #### quality filter ##################################################
 
-cmd = "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} -i #{interleaved_reads_fname} > #{filtered_reads_fname}"
+# do the flashed se reads
+cmd =
+  "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} " +
+  "-i #{flashed_fname} > #{flashed_filtered_reads_fname}"
 run_it(cmd)
 
-FileUtils.rm(interleaved_reads_fname) if File.exist?(interleaved_reads_fname)
+cmd =
+  "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} " +
+  "-i #{nonflashed_fname} > #{nonflashed_filtered_reads_fname}"
+run_it(cmd)
+
+FileUtils.rm(flashed_fname)
+FileUtils.rm(nonflashed_fname)
+
+exit
+
+#### quality stats ###################################################
 
 qual_stats(filtered_reads_fname)
 
