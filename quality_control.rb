@@ -165,14 +165,24 @@ exit if should_exit
 
 #### file names ######################################################
 
-combined = "#{opts[:prefix]}_combined"
-counts = "#{combined}.counts.txt"
-combined_counts_fname = File.join(opts[:outdir], counts)
+interleaved = "#{opts[:prefix]}.interleaved"
+counts = "#{interleaved}.counts.txt"
+interleaved_counts_fname = File.join(opts[:outdir], counts)
 
 interleaved_reads_fname =
-  File.join(opts[:outdir], "#{combined}.fq")
+  File.join(opts[:outdir], "#{interleaved}.fq")
+
+old_flashed_fname =
+  File.join(opts[:outdir], "flashed.extendedFrags.fastq")
+flashed_fname =
+  File.join(opts[:outdir], "#{interleaved}.flash_se.fq")
+old_nonflashed_fname =
+  File.join(opts[:outdir], "flashed.notCombined.fastq")
+nonflashed_fname =
+  File.join(opts[:outdir], "#{interleaved}.flash_pe.fq")
+
 filtered_reads_fname =
-  File.join(opts[:outdir], "#{combined}.filtered.fq")
+  File.join(opts[:outdir], "#{interleaved}.filtered.fq")
 
 pe_fname = "#{filtered_reads_fname}.pe"
 se_fname = "#{filtered_reads_fname}.se"
@@ -189,7 +199,7 @@ info_dir = File.join(opts[:outdir], 'info')
 #### count reads in each file ########################################
 
 count_reads(opts[:left], opts[:right],
-            out_fname: combined_counts_fname,
+            out_fname: interleaved_counts_fname,
             count_fn: zcountfq,
             threads: opts[:threads])            
 
@@ -204,11 +214,22 @@ qual_stats(interleaved_reads_fname)
 
 #### flash ###########################################################
 
+# flash reads
 cmd =
   "#{flash} --interleaved --output-prefix flashed " +
   "--output-directory #{opts[:outdir]} --threads #{opts[:threads]} " +
   "#{interleaved_reads_fname}"
 run_it(cmd)
+
+# fix naming scheme
+FileUtils.mv(old_flashed_fname, flashed_fname)
+FileUtils.mv(old_nonflashed_fname, nonflashed_fname)
+
+# remove old interleaved file
+FileUtils.rm(interleaved_reads_fname)
+
+# TODO: Move flashed.hist and flashed.histogram to stats folder
+
 exit
 
 #### quality filter ##################################################
@@ -223,15 +244,15 @@ qual_stats(filtered_reads_fname)
 #### separate properly paired and orfaned reads ######################
 
 # will output:
-#   #{combined}.filtered.fq.pe <-- proper pairs
-#   #{combined}.filtered.fq.se <-- orphaned reads
+#   #{interleaved}.filtered.fq.pe <-- proper pairs
+#   #{interleaved}.filtered.fq.se <-- orphaned reads
 
 cmd = "#{extract_paired_reads} #{filtered_reads_fname}"
 run_it(cmd)
 
 #### moved extracted files to output folder ##########################
 
-FileUtils.mv(Dir.glob("#{combined}*"), opts[:outdir])
+FileUtils.mv(Dir.glob("#{interleaved}*"), opts[:outdir])
 FileUtils.rm(filtered_reads_fname) if File.exist?(filtered_reads_fname)
 
 #### count sequences in pe and se files ##############################
