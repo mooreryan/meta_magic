@@ -314,28 +314,25 @@ qual_stats(se_fname)
 #### gzip the pe and se files ########################################
 
 if opts[:threads] == 1
-  cmd = "gzip -c #{pe_fname} > #{pe_gz_fname}"
+  cmd = "gzip #{pe_fname}"
   run_it(cmd)
 
-  cmd = "gzip -c #{se_fname} > #{se_gz_fname}"
+  cmd = "gzip #{se_fname}"
   run_it(cmd)
 else
   cmd =
-    "pigz -c --best -p #{opts[:threads]} " +
-    "#{pe_fname} > #{pe_gz_fname}"
+    "pigz --best -p #{opts[:threads]} #{pe_fname}"
   run_it(cmd)
 
   cmd =
-    "pigz -c --best -p #{opts[:threads]} " +
-    "#{se_fname} > #{se_gz_fname}"
+    "pigz --best -p #{opts[:threads]} #{se_fname}"
   run_it(cmd)
 end
 
 #### count sequences in pe and se files ##############################
 
 cmd =
-  "#{readstats} #{File.join(opts[:outdir], '*.filtered.fq.gz')} " + 
-  "> #{pe_se_counts_fname}"
+  "#{readstats} #{pe_gz_fname} #{se_gz_fname} > #{pe_se_counts_fname}"
 run_it(cmd)
 
 #### move extra output to its own folder #############################
