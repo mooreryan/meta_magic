@@ -151,10 +151,11 @@ fastx = 'vendor/fastx_toolkit-0.0.14/bin'
 interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
+flash = '/usr/local/bin/flash'
 
 # make sure they are there
 should_exit = false
-[interleave, q_filter, extract_paired_reads].each do |program|
+[interleave, q_filter, extract_paired_reads, flash].each do |program|
   unless File.exist?(program)
     $stderr.puts "ERROR: #{program} doesn't exist!"
     should_exit = true
@@ -192,13 +193,26 @@ count_reads(opts[:left], opts[:right],
             count_fn: zcountfq,
             threads: opts[:threads])            
 
-# interleave reads
+#### interleave reads ################################################
+
 cmd = "#{interleave} -o #{interleaved_reads_fname} #{opts[:left]} #{opts[:right]}"
 run_it(cmd)
 
+#### quality stats ###################################################
+
 qual_stats(interleaved_reads_fname)
 
-# qualty filter
+#### flash ###########################################################
+
+cmd =
+  "#{flash} --interleaved --output-prefix flashed " +
+  "--output-directory #{opts[:outdir]} --threads #{opts[:threads]} " +
+  "#{interleaved_reads_fname}"
+run_it(cmd)
+exit
+
+#### quality filter ##################################################
+
 cmd = "#{q_filter} -Q33 -q #{opts[:quality]} -p #{opts[:percent]} -i #{interleaved_reads_fname} > #{filtered_reads_fname}"
 run_it(cmd)
 
