@@ -152,10 +152,11 @@ interleave = "#{home}/#{khmer}/interleave-reads.py"
 q_filter = "#{home}/#{fastx}/fastq_quality_filter"
 extract_paired_reads = "#{home}/#{khmer}/extract-paired-reads.py"
 flash = '/usr/local/bin/flash'
+readstats = "#{home}/vendor/khmer/sandbox/readstats.py"
 
 # make sure they are there
 should_exit = false
-[interleave, q_filter, extract_paired_reads, flash].each do |program|
+[interleave, q_filter, extract_paired_reads, flash, readstats].each do |program|
   unless File.exist?(program)
     $stderr.puts "ERROR: #{program} doesn't exist!"
     should_exit = true
@@ -280,13 +281,6 @@ run_it(cmd)
 FileUtils.rm(flashed_filtered_reads_fname)
 FileUtils.rm("#{nonflashed_filtered_reads_fname}.se")
 
-#### count sequences in pe and se files ##############################
-
-count_reads(nonflashed_and_filtered_pe_fname, flashed_and_filtered_se_fname,
-            out_fname: pe_se_counts_fname,
-            count_fn: countfq,
-            threads: opts[:threads])            
-
 #### gzip the pe and se files ########################################
 
 if opts[:threads] == 1
@@ -307,6 +301,13 @@ end
 
 FileUtils.rm(nonflashed_and_filtered_pe_fname)
 FileUtils.rm(flashed_and_filtered_se_fname)
+
+#### count sequences in pe and se files ##############################
+
+cmd =
+  "#{readstats} #{File.join(opts[:outdir], '*.filtered.fq.gz')} " + 
+  "> #{pe_se_counts_fname}"
+run_it(cmd)
 
 #### move extra output to its own folder #############################
 
